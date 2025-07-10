@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Report Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --primary-hover: #3a56d4;
+            --secondary-color: #f8f9fa;
+            --text-color: #2b2d42;
+            --border-color: #e9ecef;
+            --success-color: #38b000;
+            --warning-color: #ff9e00;
+            --error-color: #d90429;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 8px rgba(0,0,0,0.1);
+            --shadow-lg: 0 8px 16px rgba(0,0,0,0.1);
+            --radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            background-color: white;
+            box-shadow: var(--shadow-md);
+            padding: 30px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            transition: var(--transition);
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            font-size: 2.2rem;
+            position: relative;
+            padding-bottom: 15px;
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background-color: var(--primary-color);
+            border-radius: 2px;
+        }
+
+        .input-section {
+            background-color: var(--secondary-color);
+            padding: 25px;
+            border-radius: var(--radius);
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        input[type="date"] {
+            cursor: pointer;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 25px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #reportOutput {
+            white-space: pre-wrap;
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: var(--radius);
+            background-color: white;
+            min-height: 200px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            line-height: 1.7;
+            font-size: 0.95rem;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+        }
+
+        #reportOutput:empty::before {
+            content: "Report will appear here";
+            color: #adb5bd;
+            font-style: italic;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error {
+            color: var(--error-color);
+            margin: 15px 0;
+            padding: 12px;
+            background-color: rgba(217, 4, 41, 0.1);
+            border-radius: var(--radius);
+            font-weight: 500;
+            border-left: 4px solid var(--error-color);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #adb5bd;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-dot.success {
+            background-color: var(--success-color);
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .output-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .copy-button {
+            background-color: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            margin-top: 0;
+            text-transform: none;
+            letter-spacing: normal;
+            width: auto;
+        }
+
+        .copy-button:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        @media (min-width: 768px) {
+            .form-row {
+                display: flex;
+                gap: 20px;
+            }
+            
+            .form-row .input-group {
+                flex: 1;
+            }
+            
+            button {
+                width: auto;
+                margin-left: auto;
+                padding: 12px 30px;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container, .input-section, #reportOutput {
+            animation: fadeIn 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Class Report Viewer</h1>
+        
+        <div class="input-section">
+            <div class="status">
+                <div class="status-indicator">
+                    <div id="fileStatus" class="status-dot"></div>
+                    <span id="fileStatusText">No file selected</span>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="input-group">
+                    <label for="fileInput">Select Excel File:</label>
+                    <input type="file" id="fileInput" accept=".xlsx, .xls">
+                </div>
+                
+                <div class="input-group">
+                    <label for="dateInput">Select Date:</label>
+                    <input type="date" id="dateInput">
+                </div>
+            </div>
+            
+            <button id="generateButton">Generate Report</button>
+            
+            <div id="errorMessage" class="error hidden"></div>
+        </div>
+        
+        <div class="output-header">
+            <div class="output-title">Report Output</div>
+            <button id="copyButton" class="copy-button">Copy Report</button>
+        </div>
+        
+        <div id="reportOutput"></div>
+    </div>
+
+    <script>
+        // Global variable to store the parsed data
+        let excelData = null;
+
+        // Wait for the DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const dateInput = document.getElementById('dateInput');
+            const generateButton = document.getElementById('generateButton');
+            const reportOutput = document.getElementById('reportOutput');
+            const errorMessage = document.getElementById('errorMessage');
+            const fileStatus = document.getElementById('fileStatus');
+            const fileStatusText = document.getElementById('fileStatusText');
+            const copyButton = document.getElementById('copyButton');
+
+            // Set today's date as default
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+
+            // Handle file selection
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) {
+                    fileStatus.classList.remove('success');
+                    fileStatusText.textContent = 'No file selected';
+                    return;
+                }
+
+                fileStatusText.textContent = `Loading: ${file.name}`;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Assuming the first sheet is the one we want
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        
+                        // Convert to JSON
+                        excelData = XLSX.utils.sheet_to_json(worksheet);
+                        
+                        // Log all available column headers for debugging
+                        if (excelData && excelData.length > 0) {
+                            const headers = Object.keys(excelData[0]);
+                            console.log('Available columns:', headers);
+                            
+                            // Check if required Saturday fields exist
+                            const hasSaturdayFields = headers.some(header => 
+                                header.includes('Saturday') || 
+                                header.includes('saturday')
+                            );
+                            console.log('Has Saturday fields:', hasSaturdayFields);
+                        }
+                        
+                        // Process dates
+                        excelData.forEach(row => {
+                            if (row.Date) {
+                                // Excel dates are stored as numbers, need to convert
+                                if (typeof row.Date === 'number') {
+                                    const excelDateValue = row.Date;
+                                    row.Date = new Date(Math.round((excelDateValue - 25569) * 86400 * 1000));
+                                } else if (typeof row.Date === 'string') {
+                                    // Handle various string date formats like MM/DD/YYYY
+                                    row.Date = new Date(row.Date);
+                                }
+                                
+                                // Store just the date part (no time) and reset to midnight
+                                const year = row.Date.getFullYear();
+                                const month = row.Date.getMonth();
+                                const day = row.Date.getDate();
+                                row.Date = new Date(year, month, day);
+                            }
+                            
+                            // Auto-detect Saturday additional notes field if not present but similar field exists
+                            if (!row['Additional Notes (Saturday)']) {
+                                for (const key in row) {
+                                    if (key.toLowerCase().includes('saturday') && 
+                                        key.toLowerCase().includes('note')) {
+                                        row['Additional Notes (Saturday)'] = row[key];
+                                        console.log('Found alternative Saturday notes field:', key);
+                                        break;
+                                    }
+                                }
+                            }
+                        });
+                        
+                        console.log('Processed Excel data:', excelData);
+                        
+                        // Update status indicator
+                        fileStatus.classList.add('success');
+                        fileStatusText.textContent = `File loaded: ${file.name} (${excelData.length} records)`;
+                        
+                        hideError();
+                    } catch (err) {
+                        showError('Error reading Excel file. Please make sure it\'s a valid Excel format.');
+                        fileStatus.classList.remove('success');
+                        fileStatusText.textContent = 'Error loading file';
+                        console.error(err);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+
+            // Handle generate button click
+            generateButton.addEventListener('click', function() {
+                if (!excelData) {
+                    showError('Please select an Excel file first.');
+                    return;
+                }
+
+                const inputDate = dateInput.value;
+                if (!inputDate) {
+                    showError('Please select a date.');
+                    return;
+                }
+
+                try {
+                    // Create a date object from the date input (which returns YYYY-MM-DD)
+                    const formattedDate = new Date(inputDate);
+                    
+                    if (isNaN(formattedDate.getTime())) {
+                        throw new Error('Invalid date');
+                    }
+
+                    // Reset to midnight to compare dates without time
+                    formattedDate.setHours(0, 0, 0, 0);
+                    
+                    console.log('Looking for date:', formattedDate);
+
+                    // Filter the data by the selected date
+                    const filtered = excelData.filter(row => {
+                        if (!row.Date) return false;
+                        
+                        // Compare just the date parts
+                        return row.Date.getTime() === formattedDate.getTime();
+                    });
+
+                    console.log('Filtered entries:', filtered);
+
+                    if (filtered.length === 0) {
+                        reportOutput.textContent = `No entries found for the selected date: ${formattedDate.toLocaleDateString()}\n\nDebug info:\n- Selected date: ${formattedDate.toLocaleDateString()}\n- Excel dates available: ${excelData.map(row => row.Date ? row.Date.toLocaleDateString() : 'N/A').join(', ')}`;
+                        return;
+                    }
+
+                    // Format date for display (DD-MM-YYYY)
+                    const displayDate = formattedDate.getDate().toString().padStart(2, '0') + '-' + 
+                                       (formattedDate.getMonth() + 1).toString().padStart(2, '0') + '-' + 
+                                       formattedDate.getFullYear();
+                                       
+                    // Generate the report
+                    generateReport(filtered, displayDate);
+                    hideError();
+                        
+                    // Log sample of the data for debugging
+                    if (excelData.length > 0) {
+                        console.log('Sample Excel data:', excelData.slice(0, 3));
+                    }
+                } catch (err) {
+                    showError('Please select a valid date.');
+                    console.error(err);
+                }
+            });
+
+            // Handle copy button click
+            copyButton.addEventListener('click', function() {
+                const reportText = reportOutput.textContent;
+                if (!reportText) {
+                    showError('No report to copy.');
+                    return;
+                }
+                
+                navigator.clipboard.writeText(reportText)
+                    .then(() => {
+                        const originalText = copyButton.textContent;
+                        copyButton.textContent = 'Copied!';
+                        setTimeout(() => {
+                            copyButton.textContent = originalText;
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        showError('Failed to copy. Please try manually selecting the text.');
+                        console.error('Copy failed: ', err);
+                    });
+            });
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+                
+                // Add animation effect
+                errorMessage.style.animation = 'none';
+                setTimeout(() => {
+                    errorMessage.style.animation = 'fadeIn 0.3s ease';
+                }, 10);
+            }
+
+            function hideError() {
+                errorMessage.classList.add('hidden');
+            }
+
+            // Function to parse time string and convert to minutes for sorting
+            function parseTimeToMinutes(timeStr) {
+                if (!timeStr) return 0;
+                
+                // Handle various time formats
+                const timeRegex = /(\d{1,2}):(\d{2})\s*(am|pm)?/i;
+                const match = timeStr.toLowerCase().match(timeRegex);
+                
+                if (!match) {
+                    // If no match, try to extract just numbers
+                    const numMatch = timeStr.match(/(\d{1,2})/);
+                    if (numMatch) {
+                        let hour = parseInt(numMatch[1]);
+                        // Assume AM for single digit hours < 8, PM otherwise
+                        if (hour < 8) hour += 12;
+                        return hour * 60;
+                    }
+                    return 0;
+                }
+                
+                let hours = parseInt(match[1]);
+                const minutes = parseInt(match[2]);
+                const ampm = match[3];
+                
+                // Convert to 24-hour format
+                if (ampm) {
+                    if (ampm.toLowerCase() === 'pm' && hours !== 12) {
+                        hours += 12;
+                    } else if (ampm.toLowerCase() === 'am' && hours === 12) {
+                        hours = 0;
+                    }
+                } else {
+                    // If no AM/PM specified, assume based on typical class hours
+                    if (hours < 8) hours += 12; // Assume PM for hours before 8
+                }
+                
+                return hours * 60 + minutes;
+            }
+
+            // Function to sort time slots in chronological order
+            function sortTimeSlots(timeSlots) {
+                return timeSlots.sort((a, b) => {
+                    const timeA = parseTimeToMinutes(a);
+                    const timeB = parseTimeToMinutes(b);
+                    return timeA - timeB;
+                });
+            }
+
+            function generateReport(filtered, inputDate) {
+                let report = `Class Handled- ${inputDate}\n`;
+                report += "-".repeat(26) + "\n";
+
+                // Check if it's a Saturday batch - more flexible detection
+                const isSaturday = filtered.some(row => 
+                    (row['Is this entry for a Saturday?'] && 
+                     row['Is this entry for a Saturday?'].toLowerCase() === 'yes') ||
+                    // Also check if any Saturday-specific fields have content
+                    row['Session Type (Saturday)'] || 
+                    row['Time Slot (Saturday)'] || 
+                    row['Additional Notes (Saturday)']
+                );
+
+                if (isSaturday) {
+                    // Saturday Format - Modified to use specific Saturday fields
+                    // Log the filtered data to debug
+                    console.log('Saturday data:', filtered);
+                    
+                    // Display available fields for debugging
+                    console.log('Available fields for Saturday data:');
+                    if (filtered.length > 0) {
+                        console.log(Object.keys(filtered[0]));
+                    }
+                    
+                    // Add main Saturday batch header
+                    report += "09:00 - 04:00pm (Saturday_batch):\n\n";
+                    
+                    // First time slot (usually morning session)
+                    let morningSessionFound = false;
+                    filtered.forEach(row => {
+                        // Check for any available fields with "Saturday" in their name
+                        for (const key in row) {
+                            if (key.includes('Saturday') && key.includes('Session Type')) {
+                                const value = row[key];
+                                if (value && value.trim()) {
+                                    report += `Session Type: ${value.trim()}\n\n`;
+                                    morningSessionFound = true;
+                                }
+                                break;
+                            }
+                        }
+                        
+                        // Check for any time slot with "Saturday" in the name
+                        for (const key in row) {
+                            if (key.includes('Saturday') && key.includes('Time')) {
+                                const value = row[key];
+                                if (value && value.trim()) {
+                                    report += `Time: ${value.trim()}\n\n`;
+                                    morningSessionFound = true;
+                                }
+                                break;
+                            }
+                        }
+                        
+                        // Also check the specific fields we're expecting
+                        const saturdaySessionType = row['Session Type (Saturday)'] || '';
+                        if (saturdaySessionType && saturdaySessionType.trim()) {
+                            report += `Session Type: ${saturdaySessionType.trim()}\n\n`;
+                            morningSessionFound = true;
+                        }
+                        
+                        const timeSlot = row['Time Slot (Saturday)'] || '';
+                        if (timeSlot && timeSlot.trim()) {
+                            report += `Time: ${timeSlot.trim()}\n\n`;
+                            morningSessionFound = true;
+                        }
+                        
+                        // Add any notes field that isn't specifically for the afternoon
+                        for (const key in row) {
+                            if (key.includes('Saturday') && 
+                                key.includes('Notes') && 
+                                !key.includes('Additional')) {
+                                const value = row[key];
+                                if (value && value.trim()) {
+                                    report += `${value.trim()}\n\n`;
+                                    morningSessionFound = true;
+                                }
+                                break;
+                            }
+                        }
+                    });
+                    
+                    // Add notes content if Session Type field doesn't exist but we have Notes
+                    if (!morningSessionFound) {
+                        // Try to use Session Type from regular field if Saturday-specific not available
+                        filtered.forEach(row => {
+                            const regularSessionType = row['Session Type'] || '';
+                            if (regularSessionType && regularSessionType.trim()) {
+                                report += `Session Type: ${regularSessionType.trim()}\n\n`;
+                                morningSessionFound = true;
+                            }
+                            
+                            // Also try Notes field if available
+                            const notes = row['Notes'] || '';
+                            if (notes && notes.trim()) {
+                                report += `${notes.trim()}\n\n`;
+                                morningSessionFound = true;
+                            }
+                        });
+                    }
+
+                    // Second time slot (afternoon session) - FIXED ORDER
+                    report += "04:00 - 06:00pm\n\n";
+                    
+                    let afternoonNotesFound = false;
+                    let afternoonNotes = "";
+                    
+                    // Collect all afternoon notes first
+                    filtered.forEach(row => {
+                        // First try the exact field name
+                        const saturdayNotes = row['Additional Notes (Saturday)'];
+                        if (saturdayNotes && saturdayNotes.trim()) {
+                            afternoonNotes += saturdayNotes.trim() + "\n\n";
+                            afternoonNotesFound = true;
+                        } else {
+                            // If not found, try to find any field with 'saturday' and 'additional' or 'notes'
+                            for (const key in row) {
+                                const keyLower = key.toLowerCase();
+                                if ((keyLower.includes('saturday') || keyLower.includes('sat')) && 
+                                    (keyLower.includes('additional') || keyLower.includes('note'))) {
+                                    const value = row[key];
+                                    if (value && value.trim()) {
+                                        afternoonNotes += value.trim() + "\n\n";
+                                        afternoonNotesFound = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // If still no notes found, try using regular Additional Notes field
+                        if (!afternoonNotesFound) {
+                            const regularNotes = row['Additional Notes'] || '';
+                            if (regularNotes && regularNotes.trim()) {
+                                afternoonNotes += regularNotes.trim() + "\n\n";
+                                afternoonNotesFound = true;
+                            }
+                        }
+                    });
+                    
+                    // Now add the collected notes after the time header
+                    if (afternoonNotesFound) {
+                        report += afternoonNotes;
+                    }
+                    
+                    // Add debug message if no content was found
+                    if (filtered.length > 0 && !morningSessionFound && !afternoonNotesFound) {
+                        report += "No Saturday-specific content found in the data.\n";
+                        report += "Available fields in data: " + Object.keys(filtered[0]).join(", ") + "\n";
+                    }
+                } else {
+                    // Weekday Format - FIXED to sort time slots chronologically
+                    // Get unique time slots and sort them chronologically
+                    const timeSlots = [...new Set(
+                        filtered
+                            .filter(row => row['Time Slot'])
+                            .map(row => row['Time Slot'])
+                    )];
+
+                    // Sort time slots in chronological order
+                    const sortedTimeSlots = sortTimeSlots(timeSlots);
+                    
+                    console.log('Original time slots:', timeSlots);
+                    console.log('Sorted time slots:', sortedTimeSlots);
+
+                    sortedTimeSlots.forEach(timeSlot => {
+                        report += `\n${timeSlot}:\n\n`;
+                        
+                        // Filter for current time slot and sort by batch or entry order
+                        const timeBlock = filtered.filter(row => row['Time Slot'] === timeSlot);
+                        
+                        // Sort the time block entries to ensure consistent order
+                        // You can customize this sorting based on your needs
+                        timeBlock.sort((a, b) => {
+                            // First sort by batch name if available
+                            const batchA = (a['Batch'] || '').toLowerCase();
+                            const batchB = (b['Batch'] || '').toLowerCase();
+                            if (batchA && batchB && batchA !== batchB) {
+                                return batchA.localeCompare(batchB);
+                            }
+                            
+                            // If batches are same or not available, maintain original order
+                            // You could also add timestamp-based sorting here if needed
+                            return 0;
+                        });
+                        
+                        let count = 1;
+
+                        timeBlock.forEach(row => {
+                            const sessionType = row['Session Type'] || '';
+                            const batch = row['Batch'] || '';
+                            const topics = row['Topics Covered'] || '';
+                            const task = row['Task Given'] || '';
+                            const total = row['Total Count of Students'];
+                            const present = row['Present Count'];
+                            const absent = row['Absent Count'];
+
+                            if (batch && batch.trim()) {
+                                report += `${count}. (${batch.trim()}) :-\n\n`;
+                            }
+                            
+                            // Add Session Type for weekday
+                            if (sessionType && sessionType.trim()) {
+                                report += `Session Type: ${sessionType.trim()}\n\n`;
+                            }
+
+                            if (topics && topics.trim()) {
+                                report += `TOPICS: ${topics.trim()}\n\n`;
+                            }
+
+                            if (task && task.trim()) {
+                                report += `Task given: ${task.trim()}\n\n`;
+                            }
+
+                            if (total !== undefined && total !== null) {
+                                report += `Total count --> ${parseInt(total)}\n`;
+                            }
+                            if (present !== undefined && present !== null) {
+                                report += `Present count --> ${parseInt(present)}\n`;
+                            }
+                            if (absent !== undefined && absent !== null) {
+                                report += `Absent count --> ${parseInt(absent)}\n`;
+                            }
+
+                            report += '\n';
+                            count++;
+                        });
+                    });
+                }
+
+                reportOutput.textContent = report;
+                
+                // Add animation effect
+                reportOutput.style.animation = 'none';
+                setTimeout(() => {
+                    reportOutput.style.animation = 'fadeIn 0.3s ease';
+                }, 10);
+            }
+        });
+    </script>
+</body>
+</html>

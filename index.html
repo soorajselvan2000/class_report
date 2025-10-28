@@ -558,7 +558,7 @@
             }
 
             function generateReport(filtered, inputDate) {
-                let report = `Class Handled- ${inputDate}\n${'─'.repeat(26)}\n`;
+                let report = `Class Handled- ${inputDate}\n${'-'.repeat(26)}\n`;
 
                 const isSaturday = filtered.some(row => 
                     (row['Is this entry for a Saturday?'] && row['Is this entry for a Saturday?'].toLowerCase() === 'yes') ||
